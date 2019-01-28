@@ -161,12 +161,12 @@ def train(rnn, category_tensor, line_tensor, length, criterion):
     return output, loss.item()
 
 # Tests the network on a particular data point  
-def test(rnn, category_tensor, line_tensor, length):
+def test(rnn, line_tensor, length):
     hidden = rnn.initHidden()
     for i in range(length):
         output, hidden = rnn(torch.unsqueeze(line_tensor[i], 0), hidden)
     return output
-
+    
 def runNN(xtrain, ytrain, xtest, ytest):
     
     # Generate DataLoaders for each of the datasets
@@ -197,13 +197,18 @@ def runNN(xtrain, ytrain, xtest, ytest):
     for batch_idx, (x, y, length) in enumerate(testDL):
         for i in range(len(x)):
             xx = x[i].to(device)
-            out = test(net, y, x[i], length[i])
+            out = test(net, xx, length[i])
             predictedClass = torch.argmax(out)
             print(predictedClass)
             if predictedClass == y[i]:
                 correct += 1
             else:
                 incorrect += 1
+                
+    # Example of running on a single data point
+    out = test(net, torch.FloatTensor(dnaToVec('ACACACAC')), 8)
+    print('Results for alternating string: ' + str(out))
+    
     print('Correct: ' + str(correct) + '; Incorrect: ' + str(incorrect)) 
 
 def main():
