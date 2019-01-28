@@ -22,6 +22,8 @@ num_epochs = 50
 n_hidden = 64
 n_categories = 2
 learning_rate = 0.005
+verbose = False
+testBias = False
 
 dlParams = {'batch_size': 5,
             'shuffle': True,
@@ -156,7 +158,8 @@ def train(rnn, category_tensor, line_tensor, length, criterion):
 
     # Add parameters' gradients to their values, multiplied by learning rate
     for p in rnn.parameters():
-        p.data.add_(-learning_rate, p.grad.data)
+        if not p is None and not p.grad is None:
+            p.data.add_(-learning_rate, p.grad.data)
 
     return output, loss.item()
 
@@ -167,14 +170,11 @@ def test(rnn, line_tensor, length):
         output, hidden = rnn(torch.unsqueeze(line_tensor[i], 0), hidden)
     return output
     
-def runNN(xtrain, ytrain, xtest, ytest):
-    
-    # Generate DataLoaders for each of the datasets
-    maxlen = max(len(max(xtrain, key = len)), len(max(xtest, key = len)))
+def getTrainedNN(xtrain, ytrain):
+    # Generate DataLoader
+    maxlen = len(max(xtrain, key = len))
     trainDataset = DNAStringData(xtrain, ytrain, maxlen, train = True)
     trainDL = data.DataLoader(dataset = trainDataset, **dlParams)
-    testDataset = DNAStringData(xtest, ytest, maxlen, train = False)
-    testDL = data.DataLoader(dataset = testDataset, **dlParams)
     
     # Initialize RNN and loss function
     net = RNN(alphabetSize, n_hidden, n_categories)
@@ -188,8 +188,30 @@ def runNN(xtrain, ytrain, xtest, ytest):
                 xx = x[i].to(device)
                 _, curLoss = train(net, torch.LongTensor([y[i]]), xx, length[i], criterion)
                 totalLoss += curLoss
-        if epoch%10 == 9:
+        if verbose and epoch%10 == 9:
             print('Epoch: ' + str(epoch+1) + '; Loss: ' + str(totalLoss))
+    
+    return net
+
+def testString(xtrain, ytrain, s):
+    iters = 100
+    counts = [0 for i in range(0, n_categories)]
+    for i in range(iters):
+        net = getTrainedNN(xtrain, ytrain)
+        out = test(net, torch.FloatTensor(dnaToVec(s)), len(s))
+        predictedClass = torch.argmax(out)
+        counts[predictedClass] += 1
+    print(s + ' ' + str(counts))
+    
+def runNN(xtrain, ytrain, xtest, ytest):
+
+    # Get neural network trained on training data
+    net = getTrainedNN(xtrain, ytrain)
+    
+    # Generate DataLoader for test data
+    maxlen = len(max(xtest, key = len))
+    testDataset = DNAStringData(xtest, ytest, maxlen, train = False)
+    testDL = data.DataLoader(dataset = testDataset, **dlParams)
     
     # Run on test data and assess accuracy
     correct = 0
@@ -199,15 +221,10 @@ def runNN(xtrain, ytrain, xtest, ytest):
             xx = x[i].to(device)
             out = test(net, xx, length[i])
             predictedClass = torch.argmax(out)
-            print(predictedClass)
             if predictedClass == y[i]:
                 correct += 1
             else:
                 incorrect += 1
-                
-    # Example of running on a single data point
-    out = test(net, torch.FloatTensor(dnaToVec('ACACACAC')), 8)
-    print('Results for alternating string: ' + str(out))
     
     print('Correct: ' + str(correct) + '; Incorrect: ' + str(incorrect)) 
 
@@ -215,7 +232,9 @@ def main():
     xtrain, ytrain = genToyData(True)
     xtest, ytest = genToyData(False)
     runNN(xtrain, ytrain, xtest, ytest)
-    
+    if testBias:
+        testString(xtrain, ytrain, 'AAAACCCC')
+        testString(xtrain, ytrain, 'CCCCAAAA')
     
 if __name__ == "__main__": main()
 
