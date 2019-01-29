@@ -2,12 +2,8 @@
 Learning how to use Neural Networks with genomic data
 For now positive examples are strings of 'A' and negative examples are strings of 'C'
 """
-import codecs
-import errno
-import matplotlib.pyplot as plt
 import numpy as np
 import os
-import random
 import torch
 from torch import nn
 from torch import optim
